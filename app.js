@@ -28,7 +28,7 @@ const views = {
     new: `
         <div id="new-view" class="animation-fade">
             <div class="new-post-form">
-                <textarea id="post-content" placeholder="¿Qué está pasando en Alicia?"></textarea>
+                <textarea id="post-content" placeholder="¿Qué está pasando en la familia hoy?"></textarea>
                 <div id="char-count" style="text-align: right; color: var(--text-muted); font-size: 0.8rem;">0 / 280</div>
                 <button id="btn-publish" class="btn-publish">Publicar en el Feed</button>
             </div>
