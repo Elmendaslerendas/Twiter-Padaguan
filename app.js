@@ -75,14 +75,16 @@ async function setupFeedPage() {
     // Renderizar posts
     postsList.innerHTML = posts.map(post => {
         const isOwner = post.author_id === deviceId;
-        const date = new Date(post.created_at).toLocaleDateString();
+        const dateObj = new Date(post.created_at);
+        const date = dateObj.toLocaleDateString();
+        const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const likeCount = post.likes?.[0]?.count || 0;
 
         return `
             <div class="post-card animation-fade">
                 <div class="post-content">${escapeHTML(post.content)}</div>
                 <div class="post-footer">
-                    <span class="timestamp">${date}</span>
+                    <span class="timestamp">${date} - ${time}</span>
                     <div style="display:flex; gap: 15px; align-items:center;">
                         <button class="btn-like" onclick="handleLike(event, '${post.id}')">
                             ❤️ <span>${likeCount}</span>
