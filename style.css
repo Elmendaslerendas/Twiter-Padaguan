@@ -300,6 +300,8 @@ textarea {
 
 /* Utils */
 .timestamp {
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+    /* Blanco con alta opacidad para máximo contraste */
+    font-weight: 500;
 }
