@@ -86,6 +86,7 @@ async function checkProfile() {
 function showProfileModal() {
     if (document.getElementById('profile-modal')) return;
 
+    document.body.classList.add('modal-open');
     const div = document.createElement('div');
     div.innerHTML = views.profileModal;
     document.body.appendChild(div);
@@ -111,6 +112,7 @@ function showProfileModal() {
         } else {
             userProfile = { device_id: deviceId, username: username };
             document.body.removeChild(div);
+            document.body.classList.remove('modal-open');
             router(); // Recargar para mostrar el feed bien
         }
     });
