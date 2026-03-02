@@ -1,4 +1,4 @@
-// 🚀 Twiter Padaguan v2.0 - Edición Realtime Pro
+// 🚀 Twiter Padaguan v2.0 - Edición Master (Hilos y Comentarios)
 console.log("Iniciando App con URL:", SUPABASE_URL);
 
 const { createClient } = supabase;
@@ -11,7 +11,7 @@ if (!deviceId) {
 }
 
 let userProfile = null;
-let realtimeChannel = null; // Canal para las suscripciones
+let realtimeChannel = null;
 const viewContainer = document.getElementById('view-container');
 const navLinks = document.querySelectorAll('#bottom-nav a');
 
@@ -55,22 +55,15 @@ const views = {
     `
 };
 
-// ⚡ Función de Tiempo Real
+// ⚡ Tiempo Real Maestro
 function setupRealtime() {
-    if (realtimeChannel) return; // Evitar suscripciones dobles
+    if (realtimeChannel) return;
 
-    realtimeChannel = _supabase.channel('cambios-twitter')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
-            console.log("Nuevo post detectado");
-            if (window.location.hash === '#' || window.location.hash === '') setupFeedPage();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
-            console.log("Cambio en likes detectado");
-            if (window.location.hash === '#' || window.location.hash === '') setupFeedPage();
-        })
-        .subscribe((status) => {
-            console.log("Estado de Realtime:", status);
-        });
+    realtimeChannel = _supabase.channel('cambios-globales')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => setupFeedPage())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => setupFeedPage())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => setupFeedPage())
+        .subscribe();
 }
 
 async function checkProfile() {
@@ -99,16 +92,11 @@ function showProfileModal() {
     btn.addEventListener('click', async () => {
         const username = input.value.trim();
         if (!username) return alert("Escribe un nombre.");
-
         btn.disabled = true;
-        btn.innerText = "Guardando...";
-
         const { error } = await _supabase.from('identidades_padaguan').upsert({ device_id: deviceId, username: username });
-
         if (error) {
             alert(`Error: ${error.message}`);
             btn.disabled = false;
-            btn.innerText = "Confirmar Nombre";
         } else {
             userProfile = { device_id: deviceId, username: username };
             document.body.removeChild(div);
@@ -131,7 +119,6 @@ async function setupFeedPage() {
     if (!postsList) return;
 
     const { data: posts, error } = await _supabase.from('posts').select('*').order('created_at', { ascending: false });
-
     if (error) {
         postsList.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
         return;
@@ -142,11 +129,13 @@ async function setupFeedPage() {
     if (profiles) profiles.forEach(p => profileMap[p.device_id] = p.username);
 
     const { data: likes } = await _supabase.from('likes').select('post_id');
+    const { data: allComments } = await _supabase.from('comments').select('*').order('created_at', { ascending: true });
 
     postsList.innerHTML = posts.map(post => {
         const isOwner = post.author_id === deviceId;
         const authorName = profileMap[post.author_id] || "Anónimo";
         const likeCount = likes ? likes.filter(l => l.post_id === post.id).length : 0;
+        const postComments = allComments ? allComments.filter(c => c.post_id === post.id) : [];
         const date = new Date(post.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
 
         let mediaHtml = '';
@@ -158,6 +147,14 @@ async function setupFeedPage() {
             }
         }
 
+        // Renderizado de comentarios
+        const commentsListHtml = postComments.map(c => `
+            <div class="comment-item">
+                <strong class="comment-author">@${escapeHTML(profileMap[c.author_id] || "Anónimo")}</strong>
+                <div class="comment-content">${escapeHTML(c.content)}</div>
+            </div>
+        `).join('');
+
         return `
             <div class="post-card">
                 <strong class="post-author">@${escapeHTML(authorName)}</strong>
@@ -166,14 +163,45 @@ async function setupFeedPage() {
                 <div class="post-footer">
                     <span class="timestamp">${date}</span>
                     <div style="display:flex; gap: 15px; align-items:center;">
-                        <button class="btn-like" onclick="handleLike(event, '${post.id}')">❤️ ${likeCount}</button>
+                        <button class="btn-toggle-comments" onclick="toggleComments('${post.id}')">💬 ${postComments.length}</button>
+                        <button class="btn-like" onclick="handleLike('${post.id}')">❤️ ${likeCount}</button>
                         ${isOwner ? `<button class="btn-delete" onclick="handleDelete('${post.id}')">🗑️</button>` : ''}
+                    </div>
+                </div>
+
+                <div id="comments-${post.id}" class="comments-section">
+                    <div class="comment-input-area">
+                        <input type="text" id="input-comment-${post.id}" placeholder="Escribe un comentario...">
+                        <button class="btn-comment-send" onclick="sendComment('${post.id}')">🚀</button>
+                    </div>
+                    <div class="comments-list">
+                        ${commentsListHtml}
                     </div>
                 </div>
             </div>
         `;
     }).join('');
 }
+
+window.toggleComments = (postId) => {
+    const el = document.getElementById(`comments-${postId}`);
+    el.classList.toggle('active');
+};
+
+window.sendComment = async (postId) => {
+    const input = document.getElementById(`input-comment-${postId}`);
+    const content = input.value.trim();
+    if (!content) return;
+
+    const { error } = await _supabase.from('comments').insert([{
+        post_id: postId,
+        author_id: deviceId,
+        content: content
+    }]);
+
+    if (error) alert("Error: " + error.message);
+    else input.value = ''; // Se limpia y Realtime actualizará el feed
+};
 
 function setupNewPostPage() {
     const btn = document.getElementById('btn-publish');
@@ -184,13 +212,12 @@ function setupNewPostPage() {
     const charCount = document.getElementById('char-count');
 
     const updateBtnState = () => {
-        const hasText = textarea.value.trim().length > 0;
+        const text = textarea.value.trim();
+        const hasText = text.length > 0;
         const hasFile = fileInput.files.length > 0;
         const hasUrl = mediaInput.value.trim().length > 0;
-        const isTooLong = textarea.value.length > 280;
-
         charCount.innerText = `${textarea.value.length} / 280`;
-        btn.disabled = (!hasText && !hasFile && !hasUrl) || isTooLong;
+        btn.disabled = (!hasText && !hasFile && !hasUrl) || textarea.value.length > 280;
     };
 
     textarea.addEventListener('input', updateBtnState);
@@ -202,39 +229,29 @@ function setupNewPostPage() {
     });
 
     btn.addEventListener('click', async () => {
-        const content = textarea.value.trim();
-        const hasFile = fileInput.files.length > 0;
-        const hasUrl = mediaInput.value.trim() !== "";
-
         btn.innerText = "Publicando...";
         btn.disabled = true;
-
         let finalMediaUrl = mediaInput.value.trim() || null;
         let finalMediaType = getMediaType(finalMediaUrl);
 
         try {
-            if (hasFile) {
+            if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Date.now()}.${fileExt}`;
+                const fileName = `${Date.now()}.${file.name.split('.').pop()}`;
                 const filePath = `${deviceId}/${fileName}`;
-
-                const { error: uploadError } = await _supabase.storage.from('media').upload(filePath, file);
-                if (uploadError) throw uploadError;
-
-                const { data: publicUrlData } = _supabase.storage.from('media').getPublicUrl(filePath);
-                finalMediaUrl = publicUrlData.publicUrl;
+                const { error: upErr } = await _supabase.storage.from('media').upload(filePath, file);
+                if (upErr) throw upErr;
+                const { data } = _supabase.storage.from('media').getPublicUrl(filePath);
+                finalMediaUrl = data.publicUrl;
                 finalMediaType = file.type.startsWith('video') ? 'video' : 'image';
             }
-
-            const { error: postError } = await _supabase.from('posts').insert([{
-                content: content || "",
+            const { error: postErr } = await _supabase.from('posts').insert([{
+                content: textarea.value.trim(),
                 author_id: deviceId,
                 media_url: finalMediaUrl,
                 media_type: finalMediaType
             }]);
-
-            if (postError) throw postError;
+            if (postErr) throw postErr;
             window.location.hash = '#';
         } catch (e) {
             alert("Error: " + e.message);
@@ -242,21 +259,17 @@ function setupNewPostPage() {
             btn.disabled = false;
         }
     });
-
     textarea.focus();
     updateBtnState();
 }
 
-window.handleLike = async (event, postId) => {
-    const { error } = await _supabase.from('likes').insert([{ post_id: postId, device_id: deviceId }]);
-    if (error && error.code !== '23505') alert("Error al dar like");
-    // No hace falta setupFeedPage() porque Realtime lo hará por nosotros
+window.handleLike = async (postId) => {
+    await _supabase.from('likes').insert([{ post_id: postId, device_id: deviceId }]);
 };
 
 window.handleDelete = async (postId) => {
     if (confirm("¿Borrar post?")) {
         await _supabase.from('posts').delete().eq('id', postId).eq('author_id', deviceId);
-        // Realtime actualizará el feed solo
     }
 };
 
@@ -269,9 +282,8 @@ function escapeHTML(str) {
 async function router() {
     const hash = window.location.hash || '#';
     navLinks.forEach(link => link.classList.remove('active'));
-
     if (!userProfile) await checkProfile();
-    setupRealtime(); // Arrancar tiempo real al cargar
+    setupRealtime();
 
     if (hash === '#new') {
         viewContainer.innerHTML = views.new;
