@@ -85,7 +85,7 @@ async function checkProfile() {
 
 function showProfileModal() {
     if (document.getElementById('profile-modal')) return;
-    
+
     const div = document.createElement('div');
     div.innerHTML = views.profileModal;
     document.body.appendChild(div);
@@ -120,17 +120,26 @@ function showProfileModal() {
 async function setupFeedPage() {
     const postsList = document.getElementById('posts-list');
 
-    // Obtener posts de Supabase incluyendo el perfil (nombre de usuario)
-    // Usamos un LEFT JOIN manual porque perfiles es una tabla separada
-    const { data: posts, error } = await _supabase
+    // 6.1 Obtener posts
+    const { data: posts, error: postsError } = await _supabase
         .from('posts')
-        .select(`*, profiles(username), likes(count)`)
+        .select(`*`)
         .order('created_at', { ascending: false });
 
-    if (error) {
-        postsList.innerHTML = `<p style="color:red">Error de conexión: ${error.message}</p>`;
+    if (postsError) {
+        postsList.innerHTML = `<p style="color:red">Error de conexión: ${postsError.message}</p>`;
         return;
     }
+
+    // 6.2 Obtener todos los perfiles para asociar nombres
+    const { data: profiles } = await _supabase.from('profiles').select('device_id, username');
+    const profileMap = {};
+    if (profiles) {
+        profiles.forEach(p => profileMap[p.device_id] = p.username);
+    }
+
+    // 6.3 Obtener likes
+    const { data: likes } = await _supabase.from('likes').select('post_id');
 
     if (posts.length === 0) {
         postsList.innerHTML = `<p class="timestamp" style="text-align:center; margin-top:2rem;">Nadie ha escrito nada todavía. ¡Sé la primera!</p>`;
@@ -143,8 +152,10 @@ async function setupFeedPage() {
         const dateObj = new Date(post.created_at);
         const date = dateObj.toLocaleDateString();
         const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const likeCount = post.likes?.[0]?.count || 0;
-        const authorName = post.profiles?.username || "Anónimo";
+
+        // Contar likes para este post
+        const likeCount = likes ? likes.filter(l => l.post_id === post.id).length : 0;
+        const authorName = profileMap[post.author_id] || "Anónimo";
 
         return `
             <div class="post-card animation-fade">
