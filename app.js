@@ -1,4 +1,6 @@
-// 🚀 Twiter Padaguan v2.0 - Edición Fuerza Bruta
+// 🚀 Twiter Padaguan v2.0 - Edición Diagnóstico
+console.log("Conectando a:", SUPABASE_URL); // Esto nos dirá qué URL se está usando realmente
+
 const { createClient } = supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -37,14 +39,15 @@ const views = {
 
 async function checkProfile() {
     try {
-        // Intentamos leer de la nueva tabla
-        const { data } = await _supabase.from('identidades_padaguan').select('*').eq('device_id', deviceId).maybeSingle();
+        const { data, error } = await _supabase.from('identidades_padaguan').select('*').eq('device_id', deviceId).maybeSingle();
+        if (error) throw error;
         if (data) {
             userProfile = data;
         } else {
             showProfileModal();
         }
     } catch (e) {
+        console.warn("CheckProfile fallo (normal si es nuevo):", e.message);
         showProfileModal();
     }
 }
@@ -66,11 +69,10 @@ function showProfileModal() {
         btn.disabled = true;
         btn.innerText = "Guardando...";
 
-        // Guardar en la nueva tabla
         const { error } = await _supabase.from('identidades_padaguan').upsert({ device_id: deviceId, username: username });
 
         if (error) {
-            alert("Error Supabase: " + error.message + "\n\nSi el error dice 'Could not find table', espera 20 segundos y vuelve a darle a Confirmar.");
+            alert(`SISTEMA DE DIAGNÓSTICO:\n\n1. El error es: ${error.message}\n2. Estamos intentando conectar a: ${SUPABASE_URL}\n\nSI LA URL NO EMPIEZA POR 'jctxiueo', significa que GitHub/Cloudflare aún no han actualizado el archivo config.js. Espera un minuto y refresca.`);
             btn.disabled = false;
             btn.innerText = "Confirmar Nombre";
         } else {
@@ -87,11 +89,10 @@ async function setupFeedPage() {
     const { data: posts, error } = await _supabase.from('posts').select('*').order('created_at', { ascending: false });
 
     if (error) {
-        postsList.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
+        postsList.innerHTML = `<p style="color:red">Error en posts: ${error.message}</p>`;
         return;
     }
 
-    // Buscamos los nombres en la nueva tabla
     const { data: profiles } = await _supabase.from('identidades_padaguan').select('device_id, username');
     const profileMap = {};
     if (profiles) profiles.forEach(p => profileMap[p.device_id] = p.username);
