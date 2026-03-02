@@ -1,4 +1,4 @@
-// 🚀 Twiter Padaguan v2.0 - Edición Final (Corregida)
+// 🚀 Twiter Padaguan v2.0 - Edición Fuerza Bruta
 const { createClient } = supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -37,7 +37,8 @@ const views = {
 
 async function checkProfile() {
     try {
-        const { data } = await _supabase.from('user_profiles').select('*').eq('device_id', deviceId).maybeSingle();
+        // Intentamos leer de la nueva tabla
+        const { data } = await _supabase.from('identidades_padaguan').select('*').eq('device_id', deviceId).maybeSingle();
         if (data) {
             userProfile = data;
         } else {
@@ -65,21 +66,19 @@ function showProfileModal() {
         btn.disabled = true;
         btn.innerText = "Guardando...";
 
-        const { error } = await _supabase.from('user_profiles').insert([{ device_id: deviceId, username: username }]);
+        // Guardar en la nueva tabla
+        const { error } = await _supabase.from('identidades_padaguan').upsert({ device_id: deviceId, username: username });
 
         if (error) {
-            if (error.code === '23505') {
-                const { error: upError } = await _supabase.from('user_profiles').update({ username: username }).eq('device_id', deviceId);
-                if (upError) return alert("Error Supabase: " + upError.message);
-            } else {
-                return alert("Error Supabase: " + error.message);
-            }
+            alert("Error Supabase: " + error.message + "\n\nSi el error dice 'Could not find table', espera 20 segundos y vuelve a darle a Confirmar.");
+            btn.disabled = false;
+            btn.innerText = "Confirmar Nombre";
+        } else {
+            userProfile = { device_id: deviceId, username: username };
+            document.body.removeChild(div);
+            document.body.classList.remove('modal-open');
+            router();
         }
-
-        userProfile = { device_id: deviceId, username: username };
-        document.body.removeChild(div);
-        document.body.classList.remove('modal-open');
-        router();
     });
 }
 
@@ -92,7 +91,8 @@ async function setupFeedPage() {
         return;
     }
 
-    const { data: profiles } = await _supabase.from('user_profiles').select('device_id, username');
+    // Buscamos los nombres en la nueva tabla
+    const { data: profiles } = await _supabase.from('identidades_padaguan').select('device_id, username');
     const profileMap = {};
     if (profiles) profiles.forEach(p => profileMap[p.device_id] = p.username);
 
