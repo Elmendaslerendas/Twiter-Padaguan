@@ -1,5 +1,5 @@
-// 🚀 Twiter Padaguan v2.0 - Edición Multimedia Pro
-console.log("Conectando a:", SUPABASE_URL);
+// 🚀 Twiter Padaguan v2.0 - Edición Multimedia Pro (Corregida)
+console.log("Iniciando App con URL:", SUPABASE_URL);
 
 const { createClient } = supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -20,12 +20,13 @@ const views = {
         <div id="new-view" class="animation-fade" style="padding: 1rem;">
             <div class="new-post-form">
                 <textarea id="post-content" placeholder="¿Qué está pasando?"></textarea>
-                <div id="char-count" style="text-align: right; color: var(--text-muted); font-size: 0.9rem; margin-top: -10px; margin-bottom: 10px;">0 / 280</div>
+                <div id="char-count" style="text-align: right; color: var(--text-muted); font-size: 0.8rem; margin-top: -10px; margin-bottom: 10px;">0 / 280</div>
                 
                 <div style="background: var(--glass-heavy); padding: 1.5rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 15px;">
                     <div>
                         <label style="font-size: 0.8rem; color: var(--accent); font-weight: 700; margin-bottom: 8px; display: block;">SUBIR DESDE MÓVIL / PC</label>
                         <input type="file" id="post-file" accept="image/*,video/*" style="width: 100%; color: var(--text-muted); font-size: 0.9rem;">
+                        <div id="file-status" style="font-size: 0.84rem; color: #00ba7c; margin-top: 8px; font-weight: 600;"></div>
                     </div>
                     
                     <div style="height: 1px; background: var(--glass-border); width: 100%;"></div>
@@ -56,7 +57,6 @@ const views = {
 async function checkProfile() {
     try {
         const { data, error } = await _supabase.from('identidades_padaguan').select('*').eq('device_id', deviceId).maybeSingle();
-        if (error) throw error;
         if (data) {
             userProfile = data;
         } else {
@@ -87,7 +87,7 @@ function showProfileModal() {
         const { error } = await _supabase.from('identidades_padaguan').upsert({ device_id: deviceId, username: username });
 
         if (error) {
-            alert(`SISTEMA DE DIAGNÓSTICO:\n\n1. El error es: ${error.message}\n2. Estamos intentando conectar a: ${SUPABASE_URL}`);
+            alert(`SISTEMA DE DIAGNÓSTICO:\n\n1. El error es: ${error.message}\n2. Conectado a: ${SUPABASE_URL}`);
             btn.disabled = false;
             btn.innerText = "Confirmar Nombre";
         } else {
@@ -159,27 +159,36 @@ function setupNewPostPage() {
     const textarea = document.getElementById('post-content');
     const mediaInput = document.getElementById('post-media-url');
     const fileInput = document.getElementById('post-file');
+    const fileStatus = document.getElementById('file-status');
     const charCount = document.getElementById('char-count');
 
-    // Función para habilitar/deshabilitar botón
-    const updateBtn = () => {
-        const len = textarea.value.length;
+    const updateBtnState = () => {
         const hasText = textarea.value.trim().length > 0;
         const hasFile = fileInput.files.length > 0;
         const hasUrl = mediaInput.value.trim().length > 0;
+        const isTooLong = textarea.value.length > 280;
 
-        charCount.innerText = `${len} / 280`;
-        btn.disabled = (!hasText && !hasFile && !hasUrl) || len > 280;
+        charCount.innerText = `${textarea.value.length} / 280`;
+        btn.disabled = (!hasText && !hasFile && !hasUrl) || isTooLong;
     };
 
-    textarea.addEventListener('input', updateBtn);
-    mediaInput.addEventListener('input', updateBtn);
-    fileInput.addEventListener('change', updateBtn);
+    textarea.addEventListener('input', updateBtnState);
+    mediaInput.addEventListener('input', updateBtnState);
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            fileStatus.innerText = "✅ Archivo listo: " + fileInput.files[0].name;
+        } else {
+            fileStatus.innerText = "";
+        }
+        updateBtnState();
+    });
 
     btn.addEventListener('click', async () => {
         const content = textarea.value.trim();
-        // Permitir publicar si hay algo
-        if (!content && fileInput.files.length === 0 && !mediaInput.value.trim()) return;
+        const hasFile = fileInput.files.length > 0;
+        const hasUrl = mediaInput.value.trim().length > 0;
+
+        if (!content && !hasFile && !hasUrl) return;
 
         btn.innerText = "Publicando...";
         btn.disabled = true;
@@ -187,51 +196,47 @@ function setupNewPostPage() {
         let finalMediaUrl = mediaInput.value.trim() || null;
         let finalMediaType = getMediaType(finalMediaUrl);
 
-        if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${fileExt}`;
-            const filePath = `${deviceId}/${fileName}`;
+        try {
+            if (hasFile) {
+                const file = fileInput.files[0];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${fileExt}`;
+                const filePath = `${deviceId}/${fileName}`;
 
-            const { error: uploadError } = await _supabase.storage
-                .from('media')
-                .upload(filePath, file);
+                const { error: uploadError } = await _supabase.storage
+                    .from('media')
+                    .upload(filePath, file);
 
-            if (uploadError) {
-                alert("Error al subir: " + uploadError.message);
-                btn.innerText = "Publicar";
-                btn.disabled = false;
-                return;
+                if (uploadError) throw new Error("Fallo subida: " + uploadError.message);
+
+                const { data: publicUrlData } = _supabase.storage.from('media').getPublicUrl(filePath);
+                finalMediaUrl = publicUrlData.publicUrl;
+                finalMediaType = file.type.startsWith('video') ? 'video' : 'image';
             }
 
-            const { data: publicUrlData } = _supabase.storage.from('media').getPublicUrl(filePath);
-            finalMediaUrl = publicUrlData.publicUrl;
-            finalMediaType = file.type.startsWith('video') ? 'video' : 'image';
-        }
+            const { error: postError } = await _supabase.from('posts').insert([{
+                content: content || "",
+                author_id: deviceId,
+                media_url: finalMediaUrl,
+                media_type: finalMediaType
+            }]);
 
-        const postData = {
-            content: content || "",
-            author_id: deviceId,
-            media_url: finalMediaUrl,
-            media_type: finalMediaType
-        };
+            if (postError) throw postError;
 
-        const { error } = await _supabase.from('posts').insert([postData]);
-        if (error) {
-            alert("Error: " + error.message);
+            window.location.hash = '#';
+        } catch (e) {
+            alert("Error al publicar: " + e.message);
             btn.innerText = "Publicar";
             btn.disabled = false;
-        } else {
-            window.location.hash = '#';
         }
     });
+
     textarea.focus();
-    updateBtn();
+    updateBtnState();
 }
 
 window.handleLike = async (event, postId) => {
     const btn = event.currentTarget;
-    btn.classList.add('liked-animation');
     const { error } = await _supabase.from('likes').insert([{ post_id: postId, device_id: deviceId }]);
     if (error && error.code !== '23505') alert("Error al dar like");
     else setupFeedPage();
