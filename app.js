@@ -161,27 +161,36 @@ function setupNewPostPage() {
     const fileInput = document.getElementById('post-file');
     const charCount = document.getElementById('char-count');
 
-    textarea.addEventListener('input', () => {
+    // Función para habilitar/deshabilitar botón
+    const updateBtn = () => {
         const len = textarea.value.length;
+        const hasText = textarea.value.trim().length > 0;
+        const hasFile = fileInput.files.length > 0;
+        const hasUrl = mediaInput.value.trim().length > 0;
+
         charCount.innerText = `${len} / 280`;
-        btn.disabled = len === 0 || len > 280;
-    });
+        btn.disabled = (!hasText && !hasFile && !hasUrl) || len > 280;
+    };
+
+    textarea.addEventListener('input', updateBtn);
+    mediaInput.addEventListener('input', updateBtn);
+    fileInput.addEventListener('change', updateBtn);
 
     btn.addEventListener('click', async () => {
         const content = textarea.value.trim();
-        if (!content) return;
+        // Permitir publicar si hay algo
+        if (!content && fileInput.files.length === 0 && !mediaInput.value.trim()) return;
 
-        btn.innerText = "Subiendo...";
+        btn.innerText = "Publicando...";
         btn.disabled = true;
 
         let finalMediaUrl = mediaInput.value.trim() || null;
         let finalMediaType = getMediaType(finalMediaUrl);
 
-        // Si hay un archivo seleccionado, lo subimos
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random()}.${fileExt}`;
+            const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${fileExt}`;
             const filePath = `${deviceId}/${fileName}`;
 
             const { error: uploadError } = await _supabase.storage
@@ -189,7 +198,7 @@ function setupNewPostPage() {
                 .upload(filePath, file);
 
             if (uploadError) {
-                alert("Error al subir archivo: " + uploadError.message);
+                alert("Error al subir: " + uploadError.message);
                 btn.innerText = "Publicar";
                 btn.disabled = false;
                 return;
@@ -201,7 +210,7 @@ function setupNewPostPage() {
         }
 
         const postData = {
-            content,
+            content: content || "",
             author_id: deviceId,
             media_url: finalMediaUrl,
             media_type: finalMediaType
@@ -217,6 +226,7 @@ function setupNewPostPage() {
         }
     });
     textarea.focus();
+    updateBtn();
 }
 
 window.handleLike = async (event, postId) => {
