@@ -1,4 +1,4 @@
-// 🚀 Twiter Padaguan v2.0
+// 🚀 Twiter Padaguan v2.0 - Edición Resiliente
 const { createClient } = supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -36,11 +36,16 @@ const views = {
 };
 
 async function checkProfile() {
-    const { data } = await _supabase.from('profiles').select('*').eq('device_id', deviceId).maybeSingle();
-    if (data) {
-        userProfile = data;
-    } else {
-        showProfileModal();
+    try {
+        const { data, error } = await _supabase.from('profiles').select('*').eq('device_id', deviceId).maybeSingle();
+        if (data) {
+            userProfile = data;
+        } else {
+            showProfileModal();
+        }
+    } catch (e) {
+        console.error("Error checking profile:", e);
+        showProfileModal(); // Fallback to show modal even if select fails
     }
 }
 
@@ -61,19 +66,30 @@ function showProfileModal() {
         btn.disabled = true;
         btn.innerText = "Guardando...";
 
-        const { error } = await _supabase.from('profiles').upsert({ device_id: deviceId, username: username });
+        // Usamos insert en lugar de upsert para mayor compatibilidad
+        const { error } = await _supabase.from('profiles').insert([{ device_id: deviceId, username: username }]);
 
         if (error) {
-            alert("Error: " + error.message);
-            btn.disabled = false;
-            btn.innerText = "Confirmar Nombre";
-        } else {
-            userProfile = { device_id: deviceId, username: username };
-            document.body.removeChild(div);
-            document.body.classList.remove('modal-open');
-            router();
+            // Si el error es "ya existe", intentamos update
+            if (error.code === '23505') {
+                const { error: upError } = await _supabase.from('profiles').update({ username: username }).eq('device_id', deviceId);
+                if (upError) return handleError(upError, btn);
+            } else {
+                return handleError(error, btn);
+            }
         }
+
+        userProfile = { device_id: deviceId, username: username };
+        document.body.removeChild(div);
+        document.body.classList.remove('modal-open');
+        router();
     });
+}
+
+function handleError(error, btn) {
+    alert("Supabase aún está procesando los cambios. Por favor, ejecuta el código SQL de 'notificación' que te he pasado y espera 10 segundos antes de reintentar.\n\nError técnico: " + error.message);
+    btn.disabled = false;
+    btn.innerText = "Confirmar Nombre";
 }
 
 async function setupFeedPage() {
