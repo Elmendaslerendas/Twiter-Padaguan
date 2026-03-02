@@ -1,4 +1,4 @@
-// 🚀 Twiter Padaguan v2.0 - Edición Multimedia Pro (Corregida)
+// 🚀 Twiter Padaguan v2.0 - Edición Realtime Pro
 console.log("Iniciando App con URL:", SUPABASE_URL);
 
 const { createClient } = supabase;
@@ -11,6 +11,7 @@ if (!deviceId) {
 }
 
 let userProfile = null;
+let realtimeChannel = null; // Canal para las suscripciones
 const viewContainer = document.getElementById('view-container');
 const navLinks = document.querySelectorAll('#bottom-nav a');
 
@@ -54,9 +55,27 @@ const views = {
     `
 };
 
+// ⚡ Función de Tiempo Real
+function setupRealtime() {
+    if (realtimeChannel) return; // Evitar suscripciones dobles
+
+    realtimeChannel = _supabase.channel('cambios-twitter')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+            console.log("Nuevo post detectado");
+            if (window.location.hash === '#' || window.location.hash === '') setupFeedPage();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+            console.log("Cambio en likes detectado");
+            if (window.location.hash === '#' || window.location.hash === '') setupFeedPage();
+        })
+        .subscribe((status) => {
+            console.log("Estado de Realtime:", status);
+        });
+}
+
 async function checkProfile() {
     try {
-        const { data, error } = await _supabase.from('identidades_padaguan').select('*').eq('device_id', deviceId).maybeSingle();
+        const { data } = await _supabase.from('identidades_padaguan').select('*').eq('device_id', deviceId).maybeSingle();
         if (data) {
             userProfile = data;
         } else {
@@ -87,7 +106,7 @@ function showProfileModal() {
         const { error } = await _supabase.from('identidades_padaguan').upsert({ device_id: deviceId, username: username });
 
         if (error) {
-            alert(`SISTEMA DE DIAGNÓSTICO:\n\n1. El error es: ${error.message}\n2. Conectado a: ${SUPABASE_URL}`);
+            alert(`Error: ${error.message}`);
             btn.disabled = false;
             btn.innerText = "Confirmar Nombre";
         } else {
@@ -109,10 +128,12 @@ function getMediaType(url) {
 
 async function setupFeedPage() {
     const postsList = document.getElementById('posts-list');
+    if (!postsList) return;
+
     const { data: posts, error } = await _supabase.from('posts').select('*').order('created_at', { ascending: false });
 
     if (error) {
-        postsList.innerHTML = `<p style="color:red">Error en posts: ${error.message}</p>`;
+        postsList.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
         return;
     }
 
@@ -175,20 +196,15 @@ function setupNewPostPage() {
     textarea.addEventListener('input', updateBtnState);
     mediaInput.addEventListener('input', updateBtnState);
     fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            fileStatus.innerText = "✅ Archivo listo: " + fileInput.files[0].name;
-        } else {
-            fileStatus.innerText = "";
-        }
+        if (fileInput.files.length > 0) fileStatus.innerText = "✅ Archivo listo: " + fileInput.files[0].name;
+        else fileStatus.innerText = "";
         updateBtnState();
     });
 
     btn.addEventListener('click', async () => {
         const content = textarea.value.trim();
         const hasFile = fileInput.files.length > 0;
-        const hasUrl = mediaInput.value.trim().length > 0;
-
-        if (!content && !hasFile && !hasUrl) return;
+        const hasUrl = mediaInput.value.trim() !== "";
 
         btn.innerText = "Publicando...";
         btn.disabled = true;
@@ -200,14 +216,11 @@ function setupNewPostPage() {
             if (hasFile) {
                 const file = fileInput.files[0];
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${fileExt}`;
+                const fileName = `${Date.now()}.${fileExt}`;
                 const filePath = `${deviceId}/${fileName}`;
 
-                const { error: uploadError } = await _supabase.storage
-                    .from('media')
-                    .upload(filePath, file);
-
-                if (uploadError) throw new Error("Fallo subida: " + uploadError.message);
+                const { error: uploadError } = await _supabase.storage.from('media').upload(filePath, file);
+                if (uploadError) throw uploadError;
 
                 const { data: publicUrlData } = _supabase.storage.from('media').getPublicUrl(filePath);
                 finalMediaUrl = publicUrlData.publicUrl;
@@ -222,10 +235,9 @@ function setupNewPostPage() {
             }]);
 
             if (postError) throw postError;
-
             window.location.hash = '#';
         } catch (e) {
-            alert("Error al publicar: " + e.message);
+            alert("Error: " + e.message);
             btn.innerText = "Publicar";
             btn.disabled = false;
         }
@@ -236,16 +248,15 @@ function setupNewPostPage() {
 }
 
 window.handleLike = async (event, postId) => {
-    const btn = event.currentTarget;
     const { error } = await _supabase.from('likes').insert([{ post_id: postId, device_id: deviceId }]);
     if (error && error.code !== '23505') alert("Error al dar like");
-    else setupFeedPage();
+    // No hace falta setupFeedPage() porque Realtime lo hará por nosotros
 };
 
 window.handleDelete = async (postId) => {
     if (confirm("¿Borrar post?")) {
         await _supabase.from('posts').delete().eq('id', postId).eq('author_id', deviceId);
-        setupFeedPage();
+        // Realtime actualizará el feed solo
     }
 };
 
@@ -258,7 +269,9 @@ function escapeHTML(str) {
 async function router() {
     const hash = window.location.hash || '#';
     navLinks.forEach(link => link.classList.remove('active'));
+
     if (!userProfile) await checkProfile();
+    setupRealtime(); // Arrancar tiempo real al cargar
 
     if (hash === '#new') {
         viewContainer.innerHTML = views.new;
