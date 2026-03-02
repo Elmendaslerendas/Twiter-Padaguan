@@ -1,4 +1,4 @@
-// 🚀 Twiter Padaguan v2.0 - Edición Resiliente
+// 🚀 Twiter Padaguan v2.0 - Edición Final (Corregida)
 const { createClient } = supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -37,15 +37,14 @@ const views = {
 
 async function checkProfile() {
     try {
-        const { data, error } = await _supabase.from('profiles').select('*').eq('device_id', deviceId).maybeSingle();
+        const { data } = await _supabase.from('user_profiles').select('*').eq('device_id', deviceId).maybeSingle();
         if (data) {
             userProfile = data;
         } else {
             showProfileModal();
         }
     } catch (e) {
-        console.error("Error checking profile:", e);
-        showProfileModal(); // Fallback to show modal even if select fails
+        showProfileModal();
     }
 }
 
@@ -66,16 +65,14 @@ function showProfileModal() {
         btn.disabled = true;
         btn.innerText = "Guardando...";
 
-        // Usamos insert en lugar de upsert para mayor compatibilidad
-        const { error } = await _supabase.from('profiles').insert([{ device_id: deviceId, username: username }]);
+        const { error } = await _supabase.from('user_profiles').insert([{ device_id: deviceId, username: username }]);
 
         if (error) {
-            // Si el error es "ya existe", intentamos update
             if (error.code === '23505') {
-                const { error: upError } = await _supabase.from('profiles').update({ username: username }).eq('device_id', deviceId);
-                if (upError) return handleError(upError, btn);
+                const { error: upError } = await _supabase.from('user_profiles').update({ username: username }).eq('device_id', deviceId);
+                if (upError) return alert("Error Supabase: " + upError.message);
             } else {
-                return handleError(error, btn);
+                return alert("Error Supabase: " + error.message);
             }
         }
 
@@ -84,12 +81,6 @@ function showProfileModal() {
         document.body.classList.remove('modal-open');
         router();
     });
-}
-
-function handleError(error, btn) {
-    alert("Supabase aún está procesando los cambios. Por favor, ejecuta el código SQL de 'notificación' que te he pasado y espera 10 segundos antes de reintentar.\n\nError técnico: " + error.message);
-    btn.disabled = false;
-    btn.innerText = "Confirmar Nombre";
 }
 
 async function setupFeedPage() {
@@ -101,7 +92,7 @@ async function setupFeedPage() {
         return;
     }
 
-    const { data: profiles } = await _supabase.from('profiles').select('device_id, username');
+    const { data: profiles } = await _supabase.from('user_profiles').select('device_id, username');
     const profileMap = {};
     if (profiles) profiles.forEach(p => profileMap[p.device_id] = p.username);
 
