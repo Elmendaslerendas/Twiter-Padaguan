@@ -7,6 +7,7 @@ if (!deviceId) {
     deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('device_id', deviceId);
 }
+let userProfile = null;
 
 // 2. Inicializar Supabase
 const { createClient } = supabase;
@@ -33,13 +34,28 @@ const views = {
                 <button id="btn-publish" class="btn-publish">Publicar en el Feed</button>
             </div>
         </div>
+    `,
+    profileModal: `
+        <div class="modal-overlay" id="profile-modal">
+            <div class="modal-content">
+                <h2>¡Bienvenido, Padaguan!</h2>
+                <p style="margin-bottom: 1rem; color: var(--text-muted);">Elige tu apodo para que todos sepan quién escribe.</p>
+                <input type="text" id="username-input" placeholder="Tu nombre o apodo..." maxlength="20">
+                <button id="btn-save-profile">Empezar a publicar</button>
+            </div>
+        </div>
     `
 };
 
 // 5. El Motor de Navegación (Router)
-function router() {
+async function router() {
     const hash = window.location.hash || '#';
     navLinks.forEach(link => link.classList.remove('active'));
+
+    // Verificar perfil antes de seguir
+    if (!userProfile) {
+        await checkProfile();
+    }
 
     if (hash === '#new') {
         viewContainer.innerHTML = views.new;
@@ -52,14 +68,63 @@ function router() {
     }
 }
 
+// 5.1 Lógica de Perfil
+async function checkProfile() {
+    const { data, error } = await _supabase
+        .from('profiles')
+        .select('*')
+        .eq('device_id', deviceId)
+        .single();
+
+    if (data) {
+        userProfile = data;
+    } else {
+        showProfileModal();
+    }
+}
+
+function showProfileModal() {
+    if (document.getElementById('profile-modal')) return;
+    
+    const div = document.createElement('div');
+    div.innerHTML = views.profileModal;
+    document.body.appendChild(div);
+
+    const btn = document.getElementById('btn-save-profile');
+    const input = document.getElementById('username-input');
+
+    btn.addEventListener('click', async () => {
+        const username = input.value.trim();
+        if (!username) return alert("Por favor, elige un nombre.");
+
+        btn.disabled = true;
+        btn.innerText = "Guardando...";
+
+        const { error } = await _supabase
+            .from('profiles')
+            .upsert({ device_id: deviceId, username: username });
+
+        if (error) {
+            alert("Error al guardar: " + error.message);
+            btn.disabled = false;
+            btn.innerText = "Empezar a publicar";
+        } else {
+            userProfile = { device_id: deviceId, username: username };
+            document.body.removeChild(div);
+            router(); // Recargar para mostrar el feed bien
+        }
+    });
+}
+
 // 6. Lógica del Feed (Leer Datos)
 async function setupFeedPage() {
     const postsList = document.getElementById('posts-list');
 
-    // Obtener posts de Supabase
+    // Obtener posts de Supabase incluyendo el perfil (nombre de usuario)
+    // Usamos un LEFT JOIN manual porque perfiles es una tabla separada
     const { data: posts, error } = await _supabase
         .from('posts')
-        .select(`*, likes(count)`)
+        .select(`*, profiles(username), likes(count)`)
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -79,9 +144,11 @@ async function setupFeedPage() {
         const date = dateObj.toLocaleDateString();
         const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const likeCount = post.likes?.[0]?.count || 0;
+        const authorName = post.profiles?.username || "Anónimo";
 
         return `
             <div class="post-card animation-fade">
+                <strong class="post-author">@${escapeHTML(authorName)}</strong>
                 <div class="post-content">${escapeHTML(post.content)}</div>
                 <div class="post-footer">
                     <span class="timestamp">${date} - ${time}</span>
@@ -146,8 +213,6 @@ window.handleLike = async (event, postId) => {
         alert("Error al dar like");
         btn.classList.remove('liked-animation');
     } else {
-        // Recargar solo los datos, no toda la vista si es posible, 
-        // pero para este MVP refrescamos el feed
         setupFeedPage();
     }
 };
