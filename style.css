@@ -8,7 +8,8 @@
     --glass-heavy: rgba(255, 255, 255, 0.07);
     --glass-border: rgba(255, 255, 255, 0.1);
     --text-main: #f7f9f9;
-    --text-muted: #71767b;
+    --text-muted: rgba(255, 255, 255, 0.85);
+    /* Mejorado de gris a blanco 85% */
     --error: #f4212e;
     --success: #00ba7c;
     --nav-height: 70px;
@@ -437,7 +438,13 @@ textarea {
     width: 60px;
 }
 
-/* Mejora de contraste para el placeholder */
-.comment-input-area input::placeholder {
+/* Mejora de contraste para todos los placeholders */
+input::placeholder,
+textarea::placeholder {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Estilo para el texto de 'Ningún archivo seleccionado' en móviles */
+input[type="file"] {
     color: rgba(255, 255, 255, 0.85);
 }

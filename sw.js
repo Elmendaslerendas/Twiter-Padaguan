@@ -1,4 +1,4 @@
-const CACHE_NAME = 'padaguan-v4';
+const CACHE_NAME = 'padaguan-v5';
 const ASSETS = [
     '/',
     '/index.html',
