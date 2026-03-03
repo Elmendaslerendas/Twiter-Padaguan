@@ -298,3 +298,41 @@ textarea {
     font-size: 1.2rem;
     font-weight: 700;
 }
+
+.comment-input-area {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--glass-border);
+    flex-direction: column;
+    /* Cambiado a columna para más espacio */
+}
+
+.comment-input-area input {
+    flex: 1;
+    background: var(--glass-light);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 15px;
+    /* Más padding */
+    color: #fff;
+    outline: none;
+    font-size: 1rem;
+    /* Fuente más grande */
+    min-height: 80px;
+    /* Altura mínima tipo textarea */
+}
+
+.btn-comment-send {
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: transform 0.2s;
+    align-self: flex-end;
+    /* Alineado a la derecha */
+    width: 60px;
+}

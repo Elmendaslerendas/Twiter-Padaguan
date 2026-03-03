@@ -7,8 +7,12 @@ const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let deviceId = localStorage.getItem('device_id');
 if (!deviceId) {
     deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
+    deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('device_id', deviceId);
 }
+
+// Seguimiento de última visita
+let lastVisit = localStorage.getItem('last_visit') || new Date(0).toISOString();
 
 let userProfile = null;
 let realtimeChannel = null;
@@ -181,6 +185,10 @@ async function setupFeedPage() {
             </div>
         `;
     }).join('');
+
+    // Calcular no leídos
+    const unreadCount = posts.filter(p => p.created_at > lastVisit && p.author_id !== deviceId).length;
+    updateBadge(unreadCount);
 }
 
 window.toggleComments = (postId) => {
@@ -200,8 +208,26 @@ window.sendComment = async (postId) => {
     }]);
 
     if (error) alert("Error: " + error.message);
-    else input.value = ''; // Se limpia y Realtime actualizará el feed
+    else {
+        input.value = '';
+        // Actualizar última visita al comentar para no contar los propios como nuevos inmediatamente
+        updateLastVisit();
+    }
 };
+
+function updateLastVisit() {
+    lastVisit = new Date().toISOString();
+    localStorage.setItem('last_visit', lastVisit);
+    updateBadge(0);
+}
+
+async function updateBadge(count) {
+    if ('setAppBadge' in navigator) {
+        if (count > 0) navigator.setAppBadge(count);
+        else navigator.clearAppBadge();
+    }
+    // También podríamos mostrar un número en el icono de la UI si quisiéramos
+}
 
 function setupNewPostPage() {
     const btn = document.getElementById('btn-publish');
@@ -297,4 +323,10 @@ async function router() {
 }
 
 window.addEventListener('hashchange', router);
-window.addEventListener('load', router);
+window.addEventListener('load', () => {
+    router();
+    // Actualizar última visita cuando el usuario entra al feed principal y pasa un tiempo
+    if (!window.location.hash || window.location.hash === '#') {
+        setTimeout(updateLastVisit, 3000); // 3 segundos de gracia
+    }
+});
