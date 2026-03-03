@@ -175,8 +175,10 @@ body.modal-open #bottom-nav {
 
 .timestamp {
     font-size: 0.85rem;
-    color: var(--text-muted);
-    font-weight: 500;
+    color: #00ffcc;
+    /* Verde neón de alto contraste */
+    font-weight: 600;
+    text-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
 }
 
 .btn-like,
@@ -433,4 +435,9 @@ textarea {
     align-self: flex-end;
     /* Alineado a la derecha */
     width: 60px;
+}
+
+/* Mejora de contraste para el placeholder */
+.comment-input-area input::placeholder {
+    color: rgba(255, 255, 255, 0.85);
 }
