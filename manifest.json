@@ -1,7 +1,7 @@
 {
-  "name": "Twiter Padaguan",
-  "short_name": "Padaguan",
-  "description": "La red social de los Padaguanes.",
+  "name": "Twiter-Padawan",
+  "short_name": "Padawan",
+  "description": "La red social de los Padawans.",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0a0a0c",
