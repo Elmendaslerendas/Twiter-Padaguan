@@ -11,6 +11,9 @@ if (!deviceId) {
     localStorage.setItem('device_id', deviceId);
 }
 
+// Configuración Push (Reemplazar con tus llaves VAPID)
+const VAPID_PUBLIC_KEY = "BEpbeZegY3hMtH-4-PAig-UBywpmflA0HriudzDhgnKo-I57J4kUzTj94utmbycb8wi08cc-W1ufnerWTnMsNzk";
+
 // Seguimiento de última visita
 let lastVisit = localStorage.getItem('last_visit') || new Date(0).toISOString();
 
@@ -76,6 +79,47 @@ function setupRealtime() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => setupFeedPage())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => setupFeedPage())
         .subscribe();
+
+    // Intentar suscripción Push
+    setupPushNotifications();
+}
+
+async function setupPushNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription && VAPID_PUBLIC_KEY !== 'TU_LLAVE_PUBLICA_VAPID_AQUI') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') return;
+
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+
+            // Guardar en Supabase
+            await _supabase.from('push_subscriptions').upsert({
+                device_id: deviceId,
+                subscription_json: subscription
+            });
+        }
+    } catch (err) {
+        console.warn('Error en suscripción Push:', err);
+    }
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
 }
 
 async function checkProfile() {
