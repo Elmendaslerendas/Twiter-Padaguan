@@ -179,17 +179,23 @@ body.modal-open #bottom-nav {
     font-weight: 500;
 }
 
-.btn-like {
+.btn-like,
+.btn-delete,
+.btn-toggle-comments,
+.btn-edit {
     background: rgba(255, 255, 255, 0.05);
-    border: none;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 6px 12px;
     color: var(--text-muted);
-    font-size: 1rem;
-    padding: 8px 15px;
-    border-radius: 20px;
+    font-family: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .btn-delete {
@@ -269,6 +275,98 @@ body.modal-open #bottom-nav {
     font-size: 1.2rem;
     font-weight: 800;
     cursor: pointer;
+}
+
+/* 💀 Skeleton Loaders */
+@keyframes skeleton-shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.skeleton-card {
+    background: var(--glass-heavy);
+    height: 150px;
+    border-radius: 20px;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+
+.skeleton-shimmer {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+/* 🖼️ Lightbox (Visor de Fotos) */
+.lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.lightbox.active {
+    opacity: 1;
+}
+
+.lightbox img {
+    max-width: 95%;
+    max-height: 90%;
+    border-radius: 12px;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.lightbox.active img {
+    transform: scale(1);
+}
+
+/* ✏️ Edición de Mensajes */
+.edit-area {
+    width: 100%;
+    background: var(--glass-heavy);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    color: #fff;
+    padding: 10px;
+    margin: 10px 0;
+    font-family: inherit;
+    font-size: 1rem;
+    min-height: 100px;
+    outline: none;
+}
+
+.btn-edit {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.btn-edit:hover {
+    opacity: 1;
 }
 
 /* New Post */

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'padaguan-v2';
+const CACHE_NAME = 'padaguan-v3';
 const ASSETS = [
     '/',
     '/index.html',
@@ -6,7 +6,7 @@ const ASSETS = [
     '/app.js',
     '/config.js',
     '/icon.png',
-    '/manifest.json'
+    '/manifest.webmanifest'
 ];
 
 self.addEventListener('install', (event) => {

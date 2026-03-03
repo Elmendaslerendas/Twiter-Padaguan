@@ -20,7 +20,15 @@ const viewContainer = document.getElementById('view-container');
 const navLinks = document.querySelectorAll('#bottom-nav a');
 
 const views = {
-    feed: `<div id="feed-view"><div id="posts-list"><div class="loading-spinner">Cargando...</div></div></div>`,
+    feed: `
+        <div id="feed-view">
+            <div id="posts-list">
+                <div class="skeleton-card"><div class="skeleton-shimmer"></div></div>
+                <div class="skeleton-card"><div class="skeleton-shimmer"></div></div>
+                <div class="skeleton-card"><div class="skeleton-shimmer"></div></div>
+            </div>
+        </div>
+    `,
     new: `
         <div id="new-view" class="animation-fade" style="padding: 1rem;">
             <div class="new-post-form">
@@ -118,6 +126,18 @@ function getMediaType(url) {
     return 'image';
 }
 
+function showLightbox(url) {
+    const div = document.createElement('div');
+    div.className = 'lightbox';
+    div.innerHTML = `<img src="${url}">`;
+    document.body.appendChild(div);
+    setTimeout(() => div.classList.add('active'), 10);
+    div.onclick = () => {
+        div.classList.remove('active');
+        setTimeout(() => document.body.removeChild(div), 300);
+    };
+}
+
 async function setupFeedPage() {
     const postsList = document.getElementById('posts-list');
     if (!postsList) return;
@@ -147,7 +167,7 @@ async function setupFeedPage() {
             if (post.media_type === 'video') {
                 mediaHtml = `<div class="post-media"><video src="${post.media_url}" controls muted loop playsinline></video></div>`;
             } else {
-                mediaHtml = `<div class="post-media"><img src="${post.media_url}" alt="Post media"></div>`;
+                mediaHtml = `<div class="post-media" onclick="showLightbox('${post.media_url}')"><img src="${post.media_url}" alt="Post media"></div>`;
             }
         }
 
@@ -169,7 +189,18 @@ async function setupFeedPage() {
                     <div style="display:flex; gap: 15px; align-items:center;">
                         <button class="btn-toggle-comments" onclick="toggleComments('${post.id}')">💬 ${postComments.length}</button>
                         <button class="btn-like" onclick="handleLike('${post.id}')">❤️ ${likeCount}</button>
-                        ${isOwner ? `<button class="btn-delete" onclick="handleDelete('${post.id}')">🗑️</button>` : ''}
+                        ${isOwner ? `
+                        <button class="btn-edit" onclick="toggleEdit('${post.id}')">✏️</button>
+                        <button class="btn-delete" onclick="handleDelete('${post.id}')">🗑️</button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div id="edit-area-${post.id}" style="display:none; margin-top:10px;">
+                    <textarea id="edit-input-${post.id}" class="edit-area">${post.content}</textarea>
+                    <div style="display:flex; gap:10px; justify-content: flex-end;">
+                        <button onclick="toggleEdit('${post.id}')" class="btn-delete" style="background:transparent; border:none; color:var(--text-muted)">Cancelar</button>
+                        <button onclick="saveEdit('${post.id}')" class="btn-publish" style="padding: 5px 15px; font-size: 0.9rem;">Guardar</button>
                     </div>
                 </div>
 
@@ -291,6 +322,20 @@ function setupNewPostPage() {
 
 window.handleLike = async (postId) => {
     await _supabase.from('likes').insert([{ post_id: postId, device_id: deviceId }]);
+};
+
+window.toggleEdit = (postId) => {
+    const el = document.getElementById(`edit-area-${postId}`);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
+
+window.saveEdit = async (postId) => {
+    const content = document.getElementById(`edit-input-${postId}`).value.trim();
+    if (!content) return;
+
+    const { error } = await _supabase.from('posts').update({ content: content }).eq('id', postId).eq('author_id', deviceId);
+    if (error) alert("Error: " + error.message);
+    else toggleEdit(postId); // Realtime lo refrescará
 };
 
 window.handleDelete = async (postId) => {
