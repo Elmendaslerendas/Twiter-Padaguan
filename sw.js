@@ -1,4 +1,4 @@
-const CACHE_NAME = 'padaguan-v5';
+const CACHE_NAME = 'padaguan-v6';
 const ASSETS = [
     '/',
     '/index.html',
@@ -25,6 +25,37 @@ self.addEventListener('activate', (event) => {
         })
     );
     self.clients.claim();
+});
+
+// 🔔 Manejo de Notificaciones Push
+self.addEventListener('push', (event) => {
+    let data = { title: 'Nuevo mensaje', body: 'Alguien ha publicado en Padaguan' };
+    try {
+        if (event.data) data = event.data.json();
+    } catch (e) { }
+
+    const options = {
+        body: data.body,
+        icon: '/icon.png',
+        badge: '/icon.png',
+        data: { url: '/' }
+    };
+
+    // Actualizar el número del icono si es posible
+    if ('setAppBadge' in navigator) {
+        navigator.setAppBadge(1).catch(() => { });
+    }
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, options)
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.openWindow('/')
+    );
 });
 
 self.addEventListener('fetch', (event) => {
