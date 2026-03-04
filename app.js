@@ -282,8 +282,10 @@ window.sendComment = async (postId) => {
         content: content
     }]);
 
-    if (error) alert("Error: " + error.message);
-    else {
+    if (error) {
+        console.error("Error al comentar:", error);
+        alert("¡Vaya! No se pudo enviar el comentario. Detalles: " + (error.message || "Error desconocido"));
+    } else {
         input.value = '';
         // Actualizar última visita al comentar para no contar los propios como nuevos inmediatamente
         updateLastVisit();
@@ -355,7 +357,8 @@ function setupNewPostPage() {
             if (postErr) throw postErr;
             window.location.hash = '#';
         } catch (e) {
-            alert("Error: " + e.message);
+            console.error("Error al publicar:", e);
+            alert("⚠️ Error al publicar misión: " + (e.message || "Error de conexión"));
             btn.innerText = "Publicar";
             btn.disabled = false;
         }

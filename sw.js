@@ -1,4 +1,4 @@
-const CACHE_NAME = 'padaguan-v6';
+const CACHE_NAME = 'padaguan-v7';
 const ASSETS = [
     '/',
     '/index.html',
@@ -59,6 +59,11 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Solo interceptar peticiones GET del mismo origen
+    if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request).then((response) => response || fetch(event.request))
     );
